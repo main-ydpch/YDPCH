@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="말씀탐구">
+<title>말씀탐구 — AI 성경공부</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;600&family=Cinzel:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0c1520;
+    --bg2: #111e2e;
+    --border: #1e3a52;
+    --accent: #4a8fb5;
+    --accent2: #c8a96e;
+    --text: #ddd5be;
+    --text2: #8aacbf;
+    --text3: #3a5a72;
+    --user-bg: #0e3050;
+    --ai-bg: rgba(255,255,255,0.04);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Serif KR', Georgia, serif;
+    overflow: hidden;
+  }
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    max-width: 680px;
+    margin: 0 auto;
+  }
+
+  /* SETUP SCREEN */
+  #setup {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    gap: 1.5rem;
+  }
+  #setup .cross { font-size: 2.5rem; color: var(--accent2); }
+  #setup h1 {
+    font-family: 'Cinzel', serif;
+    font-size: 1.8rem;
+    color: #f0e6c8;
+    letter-spacing: 0.05em;
+    font-weight: 400;
+  }
+  #setup p { font-size: 0.85rem; color: var(--text2); line-height: 1.7; }
+  #setup .verse { font-size: 0.78rem; color: var(--text3); font-style: italic; }
+  #api-input {
+    width: 100%;
+    max-width: 420px;
+    padding: 0.8rem 1rem;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: monospace;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border 0.2s;
+  }
+  #api-input:focus { border-color: var(--accent); }
+  #api-input::placeholder { color: var(--text3); }
+  #start-btn {
+    padding: 0.75rem 2.5rem;
+    background: linear-gradient(135deg, #1a4a72, #2a6a9a);
+    border: none;
+    border-radius: 10px;
+    color: #cde8f8;
+    font-family: 'Noto Serif KR', serif;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  #start-btn:hover { opacity: 0.85; }
+  #setup-error { font-size: 0.8rem; color: #e07070; min-height: 1rem; }
+
+  /* MAIN APP */
+  #main { display: none; flex-direction: column; height: 100%; }
+
+  /* HEADER */
+  header {
+    padding: 0.9rem 1.2rem 0.6rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+  }
+  .header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.6rem;
+  }
+  .header-top h1 {
+    font-family: 'Cinzel', serif;
+    font-size: 1.1rem;
+    color: #f0e6c8;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+  }
+  #reset-btn {
+    font-size: 0.72rem;
+    color: var(--text3);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.25rem 0.6rem;
+    cursor: pointer;
+    color: var(--text2);
+  }
+
+  /* MODE TABS */
+  .modes {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.4rem;
+  }
+  .mode-btn {
+    padding: 0.45rem 0.2rem;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text3);
+    cursor: pointer;
+    font-size: 0.68rem;
+    font-family: 'Noto Serif KR', serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    transition: all 0.18s;
+  }
+  .mode-btn .icon { font-size: 1rem; }
+  .mode-btn.active {
+    border-color: var(--accent);
+    background: rgba(74,143,181,0.15);
+    color: #cde8f8;
+  }
+
+  /* CHAT */
+  #chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    scroll-behavior: smooth;
+  }
+  #chat::-webkit-scrollbar { width: 3px; }
+  #chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    color: var(--text3);
+    text-align: center;
+    padding: 2rem;
+  }
+  .empty-state .big { font-size: 2rem; }
+  .empty-state .title { font-size: 0.9rem; color: var(--text2); }
+  .empty-state .hint { font-size: 0.78rem; font-style: italic; }
+
+  .msg { display: flex; }
+  .msg.user { justify-content: flex-end; }
+  .msg.ai { justify-content: flex-start; gap: 0.5rem; }
+  .ai-icon { font-size: 0.9rem; color: var(--accent2); margin-top: 0.3rem; flex-shrink: 0; }
+  .bubble {
+    max-width: 85%;
+    padding: 0.8rem 1rem;
+    border-radius: 14px;
+    font-size: 0.87rem;
+    line-height: 1.85;
+  }
+  .msg.user .bubble {
+    background: linear-gradient(135deg, #0e3a60, #1a5a80);
+    border-radius: 14px 14px 3px 14px;
+    color: #ddeeff;
+  }
+  .msg.ai .bubble {
+    background: var(--ai-bg);
+    border: 1px solid var(--border);
+    border-radius: 3px 14px 14px 14px;
+    color: var(--text);
+  }
+  .bubble strong { color: var(--accent2); }
+
+  .typing {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text2);
+    font-size: 0.82rem;
+    font-style: italic;
+    padding: 0.3rem 0;
+  }
+  .dots { display: flex; gap: 3px; }
+  .dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: bounce 1.2s ease-in-out infinite;
+  }
+  .dot:nth-child(2) { animation-delay: 0.15s; }
+  .dot:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes bounce {
+    0%,100% { opacity:0.3; transform:scale(0.7); }
+    50% { opacity:1; transform:scale(1.2); }
+  }
+
+  /* INPUT */
+  footer {
+    padding: 0.8rem 1.2rem 1rem;
+    border-top: 1px solid var(--border);
+    background: var(--bg2);
+  }
+  .input-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-end;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.5rem;
+    transition: border 0.2s;
+  }
+  .input-row:focus-within { border-color: var(--accent); }
+  #user-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: 'Noto Serif KR', serif;
+    font-size: 0.87rem;
+    line-height: 1.6;
+    resize: none;
+    max-height: 120px;
+    padding: 0.3rem 0.4rem;
+  }
+  #user-input::placeholder { color: var(--text3); }
+  #send-btn {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    border: none;
+    background: linear-gradient(135deg, #1a4a72, #2a6a9a);
+    color: #cde8f8;
+    font-size: 1rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.2s;
+  }
+  #send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .hint-text {
+    text-align: center;
+    font-size: 0.68rem;
+    color: var(--text3);
+    margin-top: 0.4rem;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- SETUP -->
+  <div id="setup">
+    <div class="cross">✝</div>
+    <h1>말씀탐구</h1>
+    <p>AI 성경공부 앱입니다.<br>시작하려면 Gemini API 키를 입력하세요.</p>
+    <p class="verse">"주의 말씀은 내 발에 등이요 내 길에 빛이니이다" — 시 119:105</p>
+    <input type="password" id="api-input" placeholder="AIza... (Gemini API 키 입력)" autocomplete="off" />
+    <div id="setup-error"></div>
+    <button id="start-btn">시작하기</button>
+    <p style="font-size:0.75rem; color:var(--text3)">
+      키 발급: <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--accent)">aistudio.google.com</a> (무료)
+    </p>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+    <header>
+      <div class="header-top">
+        <h1>✦ 말씀탐구</h1>
+        <button id="reset-btn">키 변경</button>
+      </div>
+      <div class="modes">
+        <button class="mode-btn active" data-mode="passage">
+          <span class="icon">📖</span>본문 분석
+        </button>
+        <button class="mode-btn" data-mode="topic">
+          <span class="icon">🔍</span>주제 탐구
+        </button>
+        <button class="mode-btn" data-mode="qa">
+          <span class="icon">💬</span>Q&A
+        </button>
+        <button class="mode-btn" data-mode="sermon">
+          <span class="icon">✝️</span>설교 준비
+        </button>
+      </div>
+    </header>
+
+    <div id="chat">
+      <div class="empty-state" id="empty">
+        <div class="big">📖</div>
+        <div class="title">본문 분석 모드</div>
+        <div class="hint">예) 요한복음 3:16, 시편 23편, 창세기 1장</div>
+      </div>
+    </div>
+
+    <footer>
+      <div class="input-row">
+        <textarea id="user-input" rows="1" placeholder="예) 요한복음 3:16"></textarea>
+        <button id="send-btn">↑</button>
+      </div>
+      <div class="hint-text">Enter 전송 · Shift+Enter 줄바꿈</div>
+    </footer>
+  </div>
+
+</div>
+
+<script>
+const MODES = {
+  passage: {
+    label: '본문 분석',
+    icon: '📖',
+    hint: '예) 요한복음 3:16, 시편 23편, 창세기 1장',
+    system: `당신은 성경 주석가이자 신학자입니다. 사용자가 입력한 성경 본문/구절을 분석해 주세요:
+1. **원어 분석** (히브리어/헬라어 핵심 단어 의미)
+2. **역사적·문화적 배경**
+3. **문학적 구조와 문맥**
+4. **신학적 핵심 메시지**
+5. **현대적 적용**
+한국어로 친절하고 깊이 있게 답해주세요.`
+  },
+  topic: {
+    label: '주제 탐구',
+    icon: '🔍',
+    hint: '예) 은혜, 구원, 기도, 성령, 믿음, 사랑',
+    system: `당신은 성경 신학자입니다. 사용자가 제시한 주제에 대해:
+1. **핵심 관련 구절** (구약/신약 각 2-3개)
+2. **성경 전체의 흐름** (구속사적 관점)
+3. **신학적 이해**
+4. **실생활 적용**
+으로 정리해 주세요. 한국어로 답해주세요.`
+  },
+  qa: {
+    label: 'Q&A',
+    icon: '💬',
+    hint: '성경이나 신앙에 관해 무엇이든 질문하세요',
+    system: `당신은 성경과 신학에 정통한 목사이자 학자입니다. 성경 관련 질문에 깊이 있고 균형 잡힌 답변을 한국어로 해주세요. 필요하면 관련 구절을 인용하세요.`
+  },
+  sermon: {
+    label: '설교 준비',
+    icon: '✝️',
+    hint: '예) 요한복음 15:1-11 또는 주제: 부활의 소망',
+    system: `당신은 설교 준비를 돕는 신학자입니다. 입력한 본문이나 주제로:
+1. **설교 제목** (2-3개 제안)
+2. **본문 개요** (서론 / 본론 3점 / 결론)
+3. **핵심 메시지** 한 문장
+4. **예화 아이디어** (2개)
+5. **소그룹 토의 질문** (3개)
+한국어로 작성해 주세요.`
+  }
+};
+
+let apiKey = localStorage.getItem('gemini_key') || '';
+let currentMode = 'passage';
+let loading = false;
+
+const setupEl = document.getElementById('setup');
+const mainEl = document.getElementById('main');
+const apiInput = document.getElementById('api-input');
+const startBtn = document.getElementById('start-btn');
+const setupError = document.getElementById('setup-error');
+const chatEl = document.getElementById('chat');
+const emptyEl = document.getElementById('empty');
+const userInput = document.getElementById('user-input');
+const sendBtn = document.getElementById('send-btn');
+const resetBtn = document.getElementById('reset-btn');
+
+function showMain() {
+  setupEl.style.display = 'none';
+  mainEl.style.display = 'flex';
+}
+function showSetup() {
+  mainEl.style.display = 'none';
+  setupEl.style.display = 'flex';
+}
+
+if (apiKey) showMain();
+
+startBtn.addEventListener('click', () => {
+  const key = apiInput.value.trim();
+  if (!key.startsWith('AIza')) {
+    setupError.textContent = '올바른 Gemini API 키를 입력해 주세요 (AIza...로 시작)';
+    return;
+  }
+  apiKey = key;
+  localStorage.setItem('gemini_key', key);
+  setupError.textContent = '';
+  showMain();
+});
+
+apiInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') startBtn.click();
+});
+
+resetBtn.addEventListener('click', () => {
+  localStorage.removeItem('gemini_key');
+  apiKey = '';
+  chatEl.innerHTML = '';
+  chatEl.appendChild(emptyEl);
+  showSetup();
+});
+
+// Mode switching
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentMode = btn.dataset.mode;
+    const m = MODES[currentMode];
+    emptyEl.querySelector('.title').textContent = m.label + ' 모드';
+    emptyEl.querySelector('.hint').textContent = m.hint;
+    userInput.placeholder = m.hint;
+    // Clear chat
+    chatEl.innerHTML = '';
+    chatEl.appendChild(emptyEl);
+    emptyEl.style.display = 'flex';
+  });
+});
+
+// Auto-resize textarea
+userInput.addEventListener('input', () => {
+  userInput.style.height = 'auto';
+  userInput.style.height = Math.min(userInput.scrollHeight, 120) + 'px';
+});
+
+userInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    send();
+  }
+});
+
+sendBtn.addEventListener('click', send);
+
+function addMessage(role, html) {
+  emptyEl.style.display = 'none';
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  if (role === 'ai') {
+    div.innerHTML = `<div class="ai-icon">✦</div><div class="bubble">${html}</div>`;
+  } else {
+    div.innerHTML = `<div class="bubble">${html}</div>`;
+  }
+  chatEl.appendChild(div);
+  chatEl.scrollTop = chatEl.scrollHeight;
+  return div;
+}
+
+function formatResponse(text) {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br>');
+}
+
+async function send() {
+  const text = userInput.value.trim();
+  if (!text || loading) return;
+
+  loading = true;
+  sendBtn.disabled = true;
+  userInput.value = '';
+  userInput.style.height = 'auto';
+
+  addMessage('user', text.replace(/</g, '&lt;'));
+
+  // Typing indicator
+  const typingDiv = document.createElement('div');
+  typingDiv.className = 'msg ai';
+  typingDiv.innerHTML = `<div class="ai-icon">✦</div><div class="typing"><span>묵상 중</span><div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`;
+  chatEl.appendChild(typingDiv);
+  chatEl.scrollTop = chatEl.scrollHeight;
+
+  try {
+    const mode = MODES[currentMode];
+    const prompt = mode.system + '\n\n사용자 질문: ' + text;
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: 1500, temperature: 0.7 }
+        })
+      }
+    );
+    const data = await res.json();
+    typingDiv.remove();
+
+    if (data.error) {
+      addMessage('ai', '⚠️ API 오류: ' + data.error.message);
+    } else {
+      const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || '응답을 받지 못했습니다.';
+      addMessage('ai', formatResponse(reply));
+    }
+  } catch (e) {
+    typingDiv.remove();
+    addMessage('ai', '⚠️ 네트워크 오류가 발생했습니다. 다시 시도해 주세요.');
+  }
+
+  loading = false;
+  sendBtn.disabled = false;
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+</script>
+</body>
+</html>
