@@ -382,7 +382,7 @@ const MODES = {
   }
 };
 
-let apiKey = localStorage.getItem('gemini_key') || '';
+let apiKey = 'AIzaSyB-03rsTyzo4Ur_RESz0tnysWzFTOxJJnw';
 let currentMode = 'passage';
 let loading = false;
 
@@ -406,7 +406,7 @@ function showSetup() {
   setupEl.style.display = 'flex';
 }
 
-if (apiKey) showMain();
+showMain();
 
 startBtn.addEventListener('click', () => {
   const key = apiInput.value.trim();
